@@ -1,0 +1,107 @@
+---
+title: "Policy Analysis on China's Huai River Policy"
+author: "Kyle Brewster"
+date: '2022-05-13'
+output: html_document
+---
+<body style="background-color:lightgrey;">
+
+
+### Introduction
+#### Abstract
+The **_Huai River Policy_** is a Chinese policy that provides free (or highly subsidized) coal for residents north of the river since the policy's institution in 1950. 
+
+According to the empirical conclusions from Ebenstein et. al in a [PNAS research paper](https://www.pnas.org/doi/10.1073/pnas.1616784114#sec-4), the analysis suggests that the Huai River Policy has had an adverse effect on human health. The policy led to PM10 concentrations being at levels that are 46 percent higher in the north and a reduce life expectancy by 3.1 years (caused by cardiorespiratory mortality). In general, the research suggests that an additional 10 μg/m3 of PM10 is associated with a 0.64-year decrease in life expectancy. 
+
+The implications of these findings predict that Chinese-compliance to their Class I PM10 standard (of  40 μg/m3) would lead to an increase of 3.7 billion life-years for their current population. In addition, less resources would be required for dedication to pollution-related issues on both the individual and national levels.
+
+#### Personal Thoughts
+It would be interesting to see if there is any research that can predict what the total loss of human life would be in the absence of these policies.
+- Also leads to a deeper question regarding how to define what is a "good policy" -- total life years, total number of pollutant-related deaths, 
+- i.e.: If the Huai River policy was never enacted (and as a result more people died annually during winter-months due to insufficient heating capabilities), how would those figures compare to the figures from this research design and reality in China today?
+
+#### Data Prep
+Loading packages 
+```{r}
+pacman::p_load( # Package manager for installing/loading
+   dplyr,       # For cleaning/wrangling syntax
+   magrittr,     # For pipes
+   ggplot2
+   )
+```
+
+
+Loading data
+```{r}
+# HTML included in script above to limit bright-light eye strain
+
+# Reading data
+river = haven::read_dta("huairiver.dta")
+
+# Modify column names for easier reference
+river %<>% rename(
+   id = 1,
+   wind = 2,
+   precip = 4,
+   north_of_river=5,
+   dist_2_river=6
+)
+```
+### Question 1 - Why would a simple analysis comparing northern vs souther cities be inaccurate?
+
+Cities that are further north have colder winter temperatures. Lower winter temperatures means more demand for heat (essential for not freezing to death) which means more demand for energy and thus more demand for particulate-emitting coal-burning that contribute to higher PM10 levels.
+
+Even if the Huai River policy did not exist, it would be likely that we would see higher PM10 concentrations in areas further-north. The image below provides an overview of mean January temperatures in China over the specified time interval. 
+![](./jan_mean_temp_china.png)  
+
+Regression discontinuity design is able to overcome this issue because it allows for analysis of populations that are receiving a given treatment versus populations that are included in the control group. 
+
+
+*LIMITATIONS OF EXISTING STUDIES*
+- Literature is composed of observational studies that include confounding variables (e.g. health effects associated with pollution exposure)
+- Current evidence looks largely at populations with modest levels of PM common among developing countries
+- Limited evidence and research surrounding long-term exposure effects
+
+*WAYS IN WHICH PREVIOUS LIMITATIONS WERE ADDRESSED*
+- Research design based on China's Huai River Policy
+- Average PM10 concentrations in China are five-times higher than the WHO standard
+- The Huai River Policy results in sustained differences in PM10 between both sides of the river that have persisted since data was first collected
+   - Also includes periods of loosened migration-restrictions 
+
+
+### Question 2 - What are the outcome and assignment variables in Fig.2 of the Ebenstein et.al paper?
+
+The _**outcome variable**_ is `pm10`, the value of which is the average PM10 level (measured in μg/m3) for the given county-code.
+
+The _**assignment variable**_ (i.e. "running variable") is 
+
+### Question 3 - What is a binned scatter plot?
+
+A __*binned scatter plot*__ is a plot where data points for a given variable are grouped into bins and then an aggregate statistics is used to summarize each bin. It is thus known as a non-parametric way of obtaining E[Y|X] (i.e. the conditional expectation of *Y* given *X*)
+
+
+Creating a binned scatter plot, creating groups based on distance to river
+```{r}
+range(river$dist_2_river) # Checking range
+```
+```{r}
+# Creating bin for each mile
+river %>%
+   round(dist_2_river, digits = 0)%>%
+   group_by(dist_2_river) %>%
+   mutate(bin_miles = ntile(dist_2_river,34))
+```
+
+
+### Question 4
+
+### Question 5 
+
+### Question 6
+
+### Question 7 
+
+### Question 8
+
+### Sources
+- https://www.researchgate.net/figure/January-mean-minimum-temperature-of-China-as-modelled-by-PRISM_fig4_268323552
