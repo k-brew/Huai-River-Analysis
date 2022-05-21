@@ -6,31 +6,36 @@ output: html_document
 ---
 <body style="background-color:lightgrey;">
 
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
-### Introduction
-#### Abstract
+# Introduction
+## Abstract
 The **_Huai River Policy_** is a Chinese policy that provides free (or highly subsidized) coal for residents north of the river since the policy's institution in 1950. 
 
 According to the empirical conclusions from Ebenstein et. al in a [PNAS research paper](https://www.pnas.org/doi/10.1073/pnas.1616784114#sec-4), the analysis suggests that the Huai River Policy has had an adverse effect on human health. The policy led to PM10 concentrations being at levels that are 46 percent higher in the north and a reduce life expectancy by 3.1 years (caused by cardiorespiratory mortality). In general, the research suggests that an additional 10 μg/m3 of PM10 is associated with a 0.64-year decrease in life expectancy. 
 
 The implications of these findings predict that Chinese-compliance to their Class I PM10 standard (of  40 μg/m3) would lead to an increase of 3.7 billion life-years for their current population. In addition, less resources would be required for dedication to pollution-related issues on both the individual and national levels.
 
-#### Personal Thoughts
+## Personal Thoughts
 It would be interesting to see if there is any research that can predict what the total loss of human life would be in the absence of these policies.
 - Also leads to a deeper question regarding how to define what is a "good policy" -- total life years, total number of pollutant-related deaths, 
 - i.e.: If the Huai River policy was never enacted (and as a result more people died annually during winter-months due to insufficient heating capabilities), how would those figures compare to the figures from this research design and reality in China today?
 
-#### Data Prep
+# Data Prep
+
 Loading packages 
 ```{r}
 pacman::p_load( # Package manager for installing/loading
    dplyr,       # For cleaning/wrangling syntax
    magrittr,     # For pipes
    ggplot2,       # For graphing/visuals
-   ggpubr      # For arranging/formatting graphs
+   ggpubr,      # For arranging/formatting graphs
+   rdd, 
+   rddtools   # For RDD modeling/design
    )
 ```
-
 
 Loading data
 ```{r}
@@ -47,7 +52,8 @@ river %<>% rename(
    north_of_river=5
 )
 ```
-### Question 1 - Why would a simple analysis comparing northern vs souther cities be inaccurate?
+
+# Question 1 - Why would a simple analysis comparing northern vs souther cities be inaccurate?
 
 Cities that are further north have colder winter temperatures. Lower winter temperatures means more demand for heat (essential for not freezing to death) which means more demand for energy and thus more demand for particulate-emitting coal-burning that contribute to higher PM10 levels.
 
@@ -55,7 +61,6 @@ Even if the Huai River policy did not exist, it would be likely that we would se
 ![](./jan_mean_temp_china.png)  
 
 Regression discontinuity design is able to overcome this issue because it allows for analysis of populations that are receiving a given treatment versus populations that are included in the control group. 
-
 
 *LIMITATIONS OF EXISTING STUDIES*
 - Literature is composed of observational studies that include confounding variables (e.g. health effects associated with pollution exposure)
@@ -68,27 +73,27 @@ Regression discontinuity design is able to overcome this issue because it allows
 - The Huai River Policy results in sustained differences in PM10 between both sides of the river that have persisted since data was first collected
    - Also includes periods of loosened migration-restrictions 
 
-
-### Question 2 - What are the outcome and assignment variables in Fig.2 of the Ebenstein et.al paper?
+# Question 2 - What are the outcome and assignment variables in Fig.2 of the Ebenstein et.al paper?
 
 The _**outcome variable**_ is `pm10`, the value of which is the average PM10 level (measured in μg/m3) for the given county-code.
 
-The _**assignment variable**_ (i.e. "running variable") is 
+The _**assignment variable**_ (i.e. "running variable") is `dist_huai`
 
-
-### Question 3 - What is a binned scatter plot?
+# Question 3 - What is a binned scatter plot?
 
 A __*binned scatter plot*__ is a plot where data points for a given variable are grouped into bins and then an aggregate statistics is used to summarize each bin. It is thus known as a non-parametric way of obtaining E[Y|X] (i.e. the conditional expectation of *Y* given *X*)
 
-
-### Question 4
+# Question 4 - Graphical Visualization
+## Exploring the Data More
 
 Creating a scatter plot, creating groups based on distance to river
 ```{r}
 # Creating bin for each mile
 river_round = river %>% group_by(dist_huai) %>%
-   round(digits = 0) %>% # making another df to avoid potential errors since I'm 
-   ungroup()             # working on the questions out of order 
+   round(digits = 2) %>% # making another df for rounded data 
+   round(digits = 1) %>%
+   round(digits = 0) %>%
+   ungroup()             
 ggplot(data=river_round,aes(x=river_round$dist_huai,y=river_round$pm10)) +
    geom_point()+
    geom_smooth(method = "lm", color="blue",se=F)+
@@ -122,6 +127,8 @@ diff(range(river$dist_huai)) # apprx. 29.25
 outlier_obs = river %>% filter(id==653221)
 river %<>% filter(id!=653221)
 ```
+
+### PM10
 
 ```{r, message=FALSE, warning=FALSE}
 # Making a bin for approximately each degree
@@ -179,7 +186,13 @@ ggarrange(plot1, plot2, plot3, plot4,vjust=1,hjust=-4,labels = "AUTO",
 plot4x_pm
 ```
 
-Now graphically illustrating the correlation between distance from the river and temperature, precipitation, and changes in wind speed
+There is a clear linear trend between how far north a data point is and average PM10 levels. The positive slope matches what we might expect without deeper analysis: cities that are further north require heating (and thus produce more emissions in the heating-process) than do cities that are further south. If we look at Figure D, however, we see a different trend. If we ignore if an observation is considered to be northern or southern (relative to its positioning to the river), we see that there is a negative-linear relationship between PM10 concentration and nearness to the river. 
+
+In addition, if we think of the `LOESS` regression line (in red) as a parabolic function, we can see that the vertex of the concave-line in Figured A-C is positions slightly to the right of zero. 
+
+### Temperature
+
+Now to graphically illustrate the correlation between distance from the river and temperature, precipitation, and changes in wind speed
 ```{r temp, message=FALSE, warning=FALSE}
 ## Temperature
 
@@ -241,6 +254,13 @@ ggarrange(plot1, plot2, plot3, plot4,vjust=1,hjust=-4,labels = "AUTO",
 plot4x_temp
 ```
 
+Temperature appears to show a strong linear correlation using both `LOESS` and `lm` regression methods. Notice in figure D of the temperature plots how the `LOESS` regression seems to fit the poorly, while there is still a linear trend (albeit poorly fitting). This is interesting to consider.
+
+These trends mean that, even if we ignore which side of the river we are looking at, there is still a strong-enough trend in the data for the line of best fit to suggest that there is a relationship between nearness to the river and average temperatures. We can further note how even though it is clear that the `lm` line is still not very well-fitting, it looks as if there is another underlying trend in the data not picked up by either regressions in Figure D. 
+
+If we assume that these trend exist because of natural temperature variations in northern versus southern continues, then we would be ignoring the information that is provided in Figure D.
+
+### Precipitation
 ```{r precip, message=FALSE, warning=FALSE}
 ## Precipitation
 
@@ -298,6 +318,10 @@ ggarrange(plot1, plot2, plot3, plot4,vjust=1,hjust=-4,labels = "AUTO",
                hjust = -1.25,vjust = -5, size = 6)) -> plot4x_precip
 plot4x_precip
 ```
+
+While the linear relationship that appears in each plot is worth noting and our consideration, it is also interesting to see the shape of the `LOESS` regression line for Figures A-C. In each of these figures, that appears to be an infection point centered (or at least *roughly* centered) at zero. This might suggest that there is perhaps a relationship that can describe the data more truthfully if the *"haves"* and the *"have-nots"* (in terms of free/subsidized coal because of the policy) are analyzed with a different approach.
+
+### Wind
 
 ```{r wind, message=FALSE, warning=FALSE}
 ## Wind speed
@@ -358,82 +382,136 @@ ggarrange(plot1, plot2, plot3, plot4,vjust=1,hjust=-4,labels = "AUTO",
 plot4x_wind
 ```
 
+When looking at wind speed, there is again a similar trend that shows in each graph. The models with the smaller number of bins-used provide additional inference that can be potentially lost with large bin sizes. There is also a slight trend that appears in Figures A-C with a local maximum around zero. While this may be something that warrants additional investigation, my hypothesis is that this can be explained by the fact that there are no wind-barriers (e.g. trees, buildings) on the river itself that may exist further inland.
+
+***
+
+## Takeaways Moving Forward
+
+After considering all of the graphs and interpretations above, we can arrive at a few generalization in the scope of our analysis:
+
+- Large number of bins for the data may obscure underlying trends
+- Graphically visualizing the data in terms of absolute-values provide some additional insight
+- We can make some changes in the analytical methods above to perhaps provide a better-fitting and robustly-insightful statistics, visualizations, and interpretations
 
 
-### Question 5 - Regression Analysis
+# Question 5 - Regression Analysis
 
-Suppose we create the following predictive models using `lm` and `LOESS ` regression to predict a given variable based 
+In attempting to replicate the bandwidth selection from the Ebstein et.al paper, while we could make an educated guess by looking at the number of points on a given side of the axis (and count 13 points plotted with negative degree-values and 17 with positive degree-values), we can also recall that the range of the original values for degree-distance to the river
+
 ```{r}
-## PM10
-# LOESS 
-pm10.L = loess(formula = pm10 ~ dist_huai,
-                  data = river)
-# LM
-pm10.lm = lm(formula = pm10 ~ dist_huai,
-                 data = river)
-
-## Precipitation
-# LOESS 
-precip.L = loess(formula = precip ~ dist_huai,
-                 data = river)
-# LM
-precip.lm = lm(formula = precip ~ dist_huai,
-               data = river)
-
-## Temperature
-# LOESS 
-temp.L = loess(formula = temp ~ dist_huai,
-               data = river)
-# LM
-temp.lm = lm(formula = temp ~ dist_huai,
-             data = river)
-
-## Wind
-# LOESS 
-wind.L = loess(formula = wind ~ dist_huai, 
-               data = river)
-# LM
-wind.lm = lm(formula = wind ~ dist_huai,
-             data = river)
+range(river$dist_huai)
+range(river_round$dist_huai)
 ```
 
-Which would make the following predictions:
+which is approximately (-12.78, 16.47) and rounded to (-13, 16), the same range of points visually observed in the Ebstein et.al plot and the same as the bin selection of one of the models we used earlier. Although the number of positive/negative values differ, I expect that this is because of differences in rounding. While I'm sure I could manipulate the data with perhaps a  `celing()` or `floor()` function to obtain the *exact same* range/bin values (or perhaps there is a better function for rounding than the one I used), since the range is the same and less value is lost in rounding by all values up/down regardless of distance to nearest whole number/integer, I will use the rounding/bin-selection as described above and earlier in this analysis. 
 
+If we plot the same data using a regression discontinuity design, we can gain better insight regarding the difference between the groups/treatment
 ```{r}
-predict(pm10.L, newdata = river,interval = "confidence")
+river_round %<>% group_by(dist_huai) %>%
+   mutate(north_of_river = as.factor(north_of_river)) %>% ungroup(.)
 
-summary(wind.L)
-
-# Adding columns of predictions to data frame
-river %>% 
-   modelr::spread_predictions(.,
-                              pm10.L, pm10.lm,
-                              precip.L, precip.lm,
-                              temp.L, temp.lm,
-                              wind.L, wind.lm,
-                              type = NULL)
-```
-
-With a table displaying the confidence intervals for each model
-```{r}
-confint(pm10.lm, interval="predict",level = .95) -> temp
-summary(pm10.L)
-
-```
-
-```{r}
-predict(pm10.lm, newdata = river, interval = 'prediction')
-
-kableExtra::kbl(river[, c(1,6,2,4,5)])
+# PM10, similar to the graph included in the paper 
+river %>% na.omit() %>% 
+   mutate(north_of_river = as.factor(north_of_river)) %>%
+   ggplot(.,aes(dist_huai, pm10, color=north_of_river)) +
+      geom_point(alpha=0.35)+
+     stat_summary_bin(fun.y='mean', bins=30, 
+                   color='black', geom='point')+
+            geom_smooth(method = "lm", formula = y~poly(x,2),se=F)+
+      geom_vline(xintercept = 0, linetype="longdash")+
+      ylim(40,160)+
+      ylab("Distance from Huai River")+ 
+      xlab("Average PM10")
 ```
 
 
+Now to formally define our models
 
-### Question 6
+```{r}
+library(rdrobust)
+river %>% na.omit() %>% attach(.)
 
-### Question 7 
+summary(
+   rdplot(y=pm10, x=dist_huai, nbins = 15, ci = .95, shade=TRUE,
+         title="PM10 and Distance to Huai River",
+         y.label="PM10",
+         x.label="Distance to River")
+   )
+```
 
-### Question 8
+```{r}
+summary(
+   rdplot(y=temp, x=dist_huai, nbins = 14, ci = .95, shade=TRUE,
+         title="Temperature and Distance to Huai River",
+         y.label="Temerature (F)",
+         x.label="Distance to River")
+   )
+```
 
-### Sources
+```{r}
+summary(
+   rdplot(y=wind, x=dist_huai, nbins = 9, ci = .95, shade=TRUE,
+         title="Wind-speeds and Distance to Huai River",
+         y.label="Average Wind Speed",
+         x.label="Distance to River")
+   )
+```
+The graph above showing the `wind` variable shows a violation of covariate smoothness, so regression discontinuity design will not be very insightful for insight between these two variables (or at least we are unable to say that the difference in wind speeds given other characteristics of a given observation cannot be independent attributed to exposure to the treatment/side of the river)
+
+```{r}
+summary(
+   rdplot(y=precip, x=dist_huai, nbins = 12, ci = .95, shade=TRUE,
+         title="Precipitation and Distance to Huai River",
+         y.label="Precipitation",
+         x.label="Distance to River")
+   )
+```
+
+# Question 6 - The Identification Assumption
+
+In RD design, the identification assumption would hold true if we are able to determine that the jump that occurs in the data at the cutoff point is only explained by exposure to the treatment (i.e. the change in Di is the only reason for the change in Yi)
+
+As mentioned above, the assumption hold true except for the plot for the interaction with the `wind` variable
+
+# Question 7 - Manipulation Testing
+
+If we consider the distribution of the variable in the data
+```{r message=FALSE, warning=FALSE, error=FALSE, cache=FALSE}
+ggplot(river, aes(wind)) +  geom_histogram()
+ggplot(river, aes(temp)) +  geom_histogram()
+ggplot(river, aes(pm10)) +  geom_histogram()
+ggplot(river, aes(wind)) +  geom_histogram()
+```
+
+we do not need to worry about performing a manipulation test. Although none of the plots above have perfectly normal/skewed distribution, they do not show any apparent/significant jump in observed-characters that may potentially be explaining a significant portion of the trend in the modeling.
+
+There is a spike in the distribution of temperature, but since temperature is correlated with PM10 concentration (which is normal enough), therein lies a hint about a possible trend in the data and we can move on in our analysis with confidence.
+
+# Question 8 - The Placebo Test
+
+The purpose of running a placebo test is to ensure that there are not trends being derived from analysis of a specific set of data that may in fact be able to be attributed to another source that is not contained in study's data set. 
+
+By considering this potential and with the use of false locations, the authors are able to better-isolate the true effect of treatment that might potentially be obfuscated if simply looking at latitudinal position (which might result in natural variation of variables as the river bends)
+
+In the paper the author further explain that, since the predictions of the test fall within the 95% CI of predicted values for PM10 and life expectancy We can utilize similar logic (along with the hint from the assignment outline) to perform a similar test
+```{r error=TRUE}
+# Creating placebo
+river = river %>% group_by(dist_huai) %>% round(digits = 0)
+attach(river)
+
+river = river %>%
+   mutate(placebo = if_else(dist_huai==1, dist_huai+1,dist_huai))
+summary(
+   rdplot(y=pm10, x=placebo, nbins = 15, ci = .95, shade=TRUE,
+         title="PM10 and Distance to Huai River (placebo)",
+         y.label="PM10",
+         x.label="Distance to River")
+   )
+```
+
+We can see that the result still hold true and we be further assured of the reliability of our conclusions.
+
+# Sources
 - https://www.researchgate.net/figure/January-mean-minimum-temperature-of-China-as-modelled-by-PRISM_fig4_268323552
+- https://www.pnas.org/doi/10.1073/pnas.1616784114#supplementary-materials
